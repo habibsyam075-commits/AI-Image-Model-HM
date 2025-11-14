@@ -138,6 +138,7 @@ export const generateAIImage = async (
   modelType: 'professional' | 'natural',
   aspectRatio: '1:1' | '3:4' | '9:16',
   numberOfImages: 1 | 4 = 1,
+  generationTier: 'premium' | 'standard' = 'premium',
 ): Promise<string[]> => {
   const ai = new GoogleGenAI({ apiKey });
 
@@ -158,7 +159,7 @@ export const generateAIImage = async (
         },
       });
 
-      if (response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+      if (response.candidates?.[0]?.content?.parts) {
         for (const part of response.candidates[0].content.parts) {
           if (part.inlineData) {
             return [part.inlineData.data]; // Return as an array with one image
@@ -179,30 +180,64 @@ export const generateAIImage = async (
   } 
   
   // Case 2: No reference photo (Image Generation)
-  // Use Imagen to generate 1 or more images.
   else {
     const prompt = buildImagenPrompt(modelData, sceneData, country, overallStyle, modelType);
     
-    try {
-      const response = await ai.models.generateImages({
-        model: 'imagen-4.0-generate-001',
-        prompt: prompt,
-        config: {
-          numberOfImages: numberOfImages,
-          outputMimeType: 'image/png',
-          aspectRatio: aspectRatio,
-        },
-      });
+    if (generationTier === 'standard') {
+      // Use gemini-2.5-flash-image for "tier 1" generation
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash-image',
+          contents: {
+            parts: [{ text: prompt }],
+          },
+          config: {
+            responseModalities: [Modality.IMAGE],
+          },
+        });
 
-      if (response.generatedImages && response.generatedImages.length > 0) {
-        return response.generatedImages.map(img => img.image.imageBytes);
-      } else {
-        throw new Error('Image generation failed. The model did not return any images. This may be due to safety policies. Please try adjusting your prompt to be less sensitive.');
+        if (response.candidates?.[0]?.content?.parts) {
+          for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+              return [part.inlineData.data]; // Return as an array with one image
+            }
+          }
+        } else {
+          const finishReason = response.candidates?.[0]?.finishReason;
+          if (finishReason) {
+            throw new Error(`Image generation failed. Reason: ${finishReason}. This may be due to safety policies.`);
+          }
+        }
+        
+        throw new Error('Image generation failed with Standard engine. No image data received.');
+
+      } catch (error: any) {
+        console.error("Error generating image with Gemini Flash Image:", error);
+        throw new Error(error.message || 'An unknown error occurred during image generation with the Standard engine.');
       }
-    } catch (error: any)
-    {
-      console.error("Error generating images with Imagen:", error);
-      throw new Error(error.message || 'An unknown error occurred during image generation.');
+    } else { // 'premium' tier
+      // Use Imagen to generate 1 or more images.
+      try {
+        const response = await ai.models.generateImages({
+          model: 'imagen-4.0-generate-001',
+          prompt: prompt,
+          config: {
+            numberOfImages: numberOfImages,
+            outputMimeType: 'image/png',
+            aspectRatio: aspectRatio,
+          },
+        });
+
+        if (response.generatedImages && response.generatedImages.length > 0) {
+          return response.generatedImages.map(img => img.image.imageBytes);
+        } else {
+          throw new Error('Image generation failed. The model did not return any images. This may be due to safety policies. Please try adjusting your prompt to be less sensitive.');
+        }
+      } catch (error: any)
+      {
+        console.error("Error generating images with Imagen:", error);
+        throw new Error(error.message || 'An unknown error occurred during image generation.');
+      }
     }
   }
 };

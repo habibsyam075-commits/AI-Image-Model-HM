@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [overallStyle, setOverallStyle] = useState<'modern' | 'authentic'>('modern');
   const [modelType, setModelType] = useState<'professional' | 'natural'>('professional');
   const [aspectRatio, setAspectRatio] = useState<'1:1' | '3:4' | '9:16'>('1:1');
+  const [generationTier, setGenerationTier] = useState<'premium' | 'standard'>('premium');
   const [isCountryRandom, setIsCountryRandom] = useState<boolean>(false);
   const [reference, setReference] = useState<ReferenceData>({
     photo: null,
@@ -418,7 +419,7 @@ const App: React.FC = () => {
           setNationality(effectiveCountry);
       }
       
-      const imagesData = await generateAIImage(apiKey, model, scene, reference, effectiveCountry, overallStyle, modelType, aspectRatio, numImages);
+      const imagesData = await generateAIImage(apiKey, model, scene, reference, effectiveCountry, overallStyle, modelType, aspectRatio, numImages, generationTier);
       setGeneratedImages(imagesData);
       setSelectedImageIndex(0);
 
@@ -446,7 +447,7 @@ const App: React.FC = () => {
         loadingIntervalRef.current = null;
       }
     }
-  }, [apiKey, model, scene, reference, nationality, isCountryRandom, overallStyle, modelType, aspectRatio]);
+  }, [apiKey, model, scene, reference, nationality, isCountryRandom, overallStyle, modelType, aspectRatio, generationTier]);
   
   const handleDownloadImage = () => {
     const selectedImage = generatedImages ? generatedImages[selectedImageIndex] : null;
@@ -780,28 +781,52 @@ const App: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Aspect Ratio
                         </label>
-                        <div className={`flex rounded-lg p-1 bg-gray-200 w-full segmented-control ${reference.usePhoto ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                        <div className={`flex rounded-lg p-1 bg-gray-200 w-full segmented-control ${reference.usePhoto || generationTier === 'standard' ? 'opacity-50 cursor-not-allowed' : ''}`}>
                             {ASPECT_RATIO_OPTIONS.map(option => (
                                 <button
                                     key={option.value}
                                     onClick={() => setAspectRatio(option.value)}
                                     aria-selected={aspectRatio === option.value}
                                     className="px-4 py-2 text-sm font-semibold rounded-md flex-1 transition-colors"
-                                    disabled={anyLoading || reference.usePhoto}
+                                    disabled={anyLoading || reference.usePhoto || generationTier === 'standard'}
                                 >
                                     {option.name} ({option.value})
                                 </button>
                             ))}
                         </div>
-                         {reference.usePhoto && <p className="text-xs text-gray-500 mt-2">Aspect ratio is determined by the reference photo.</p>}
+                         {(reference.usePhoto || generationTier === 'standard') && <p className="text-xs text-gray-500 mt-2">{reference.usePhoto ? 'Aspect ratio is determined by the reference photo.' : 'Aspect ratio is fixed for the Standard engine.'}</p>}
                     </div>
                     <Select label="Shot Type" id="shotType" name="shotType" value={scene.shotType} onChange={handleSceneChange} options={SHOT_TYPE_OPTIONS} disabled={anyLoading} />
                 </div>
             </Card>
 
             <Card>
+              <h2 className="text-2xl font-semibold mb-4 border-b pb-2">9. Generation Engine</h2>
+              <p className="text-sm text-gray-600 mb-4">Choose the AI model. Premium offers higher quality and more options but may require billing. Standard is faster and may have a free tier.</p>
+              <div className="flex rounded-lg p-1 bg-gray-200 w-full md:w-auto segmented-control">
+                <button 
+                  onClick={() => setGenerationTier('premium')}
+                  aria-selected={generationTier === 'premium'}
+                  className="px-4 py-2 text-sm font-semibold rounded-md flex-1 transition-colors"
+                  disabled={anyLoading || reference.usePhoto}
+                >
+                  Premium (Imagen 4)
+                </button>
+                <button 
+                  onClick={() => setGenerationTier('standard')}
+                  aria-selected={generationTier === 'standard'}
+                  className="px-4 py-2 text-sm font-semibold rounded-md flex-1 transition-colors"
+                  disabled={anyLoading || reference.usePhoto}
+                >
+                  Standard (Flash Image)
+                </button>
+              </div>
+              {reference.usePhoto && <p className="text-xs text-gray-500 mt-2">Engine is automatically selected when using a reference photo.</p>}
+            </Card>
+
+            <Card>
               <div className="flex flex-wrap justify-between items-center gap-4 mb-6 border-b pb-2">
-                <h2 className="text-2xl font-semibold">9. Scene & Background</h2>
+                <h2 className="text-2xl font-semibold">10. Scene & Background</h2>
                 <div className="flex items-center gap-2 flex-wrap">
                   {isAdaptingScene && (
                     <div className="flex items-center text-sm text-gray-500">
@@ -849,13 +874,13 @@ const App: React.FC = () => {
                 {generatingCount === 1 && <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
                 {generatingCount === 1 ? 'Generating Image...' : 'Generate Image'}
               </Button>
-              <Button onClick={() => handleGenerateImage(4)} disabled={anyLoading || reference.usePhoto} variant="secondary" className="w-full text-lg">
+              <Button onClick={() => handleGenerateImage(4)} disabled={anyLoading || reference.usePhoto || generationTier === 'standard'} variant="secondary" className="w-full text-lg">
                 {generatingCount === 4 && <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>}
                 {generatingCount === 4 ? 'Generating 4 Images...' : 'Generate 4 Images'}
               </Button>
-              {reference.usePhoto && (
+              {(reference.usePhoto || generationTier === 'standard') && (
                   <p className="text-xs text-center text-gray-500">
-                      Generating multiple images is unavailable with a reference photo.
+                      {reference.usePhoto ? 'Generating multiple images is unavailable with a reference photo.' : 'Generating multiple images is unavailable with the Standard engine.'}
                   </p>
               )}
             </div>
@@ -863,7 +888,7 @@ const App: React.FC = () => {
 
           <div className="lg:sticky lg:top-8 w-full">
             <Card>
-              <h2 className="text-2xl font-semibold mb-4 border-b pb-2">10. Generated Image</h2>
+              <h2 className="text-2xl font-semibold mb-4 border-b pb-2">11. Generated Image</h2>
               <div className="mt-4 aspect-square bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200">
                 {anyLoading ? (
                   <div className="text-center p-4">
