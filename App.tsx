@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { ModelData, SceneData, ReferenceData, OverlayData } from './types';
 import { GENDER_OPTIONS, EXPRESSION_OPTIONS, LIGHTING_OPTIONS, MOOD_OPTIONS, NATIONALITY_OPTIONS, SHOT_TYPE_OPTIONS, INDOOR_PRESET_OPTIONS, ASPECT_RATIO_OPTIONS, MODERN_OUTFITS, AUTHENTIC_OUTFITS, SENSUAL_POSES, NON_SENSUAL_POSES } from './constants';
@@ -48,7 +49,7 @@ const App: React.FC = () => {
   const [overallStyle, setOverallStyle] = useState<'modern' | 'authentic'>('modern');
   const [modelType, setModelType] = useState<'professional' | 'natural'>('professional');
   const [aspectRatio, setAspectRatio] = useState<'1:1' | '3:4' | '9:16'>('1:1');
-  const [generationTier, setGenerationTier] = useState<'premium' | 'standard'>('premium');
+  const [generationTier, setGenerationTier] = useState<'premium' | 'standard'>('standard');
   const [isCountryRandom, setIsCountryRandom] = useState<boolean>(false);
   const [reference, setReference] = useState<ReferenceData>({
     photo: null,
@@ -427,15 +428,30 @@ const App: React.FC = () => {
       if (err && err.message) {
         try {
           const errorJson = JSON.parse(err.message);
-          if (errorJson.error && errorJson.error.status === 'RESOURCE_EXHAUSTED') {
-            setError(
-              'BILLING_ERROR:This usually means billing is not enabled for your Google Cloud project. While your key works in AI Studio, using it here requires an active billing account. Please enable billing and try again.'
-            );
+          const apiError = errorJson.error;
+          if (apiError) {
+            if (apiError.status === 'RESOURCE_EXHAUSTED') {
+              setError(
+                'BILLING_ERROR:This usually means billing is not enabled for your Google Cloud project. While your key works in AI Studio, using it here requires an active billing account. Please enable billing and try again.'
+              );
+            } else if (apiError.status === 'INVALID_ARGUMENT') {
+               setError(
+                'INVALID_KEY_ERROR:The API key is not valid. Please check for typos or restrictions.'
+              );
+            } else {
+              setError(apiError.message || err.message);
+            }
           } else {
-            setError(errorJson.error?.message || err.message);
+             setError(err.message);
           }
         } catch (e) {
-          setError(err.message);
+          if (err.message.toLowerCase().includes('api key not valid')) {
+             setError(
+              'INVALID_KEY_ERROR:The API key is not valid. Please check for typos or restrictions.'
+            );
+          } else {
+            setError(err.message);
+          }
         }
       } else {
         setError('An unexpected error occurred.');
@@ -906,6 +922,31 @@ const App: React.FC = () => {
                                 Please <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-red-800">enable billing for your project</a> and try again.
                             </p>
                         </>
+                    ) : error.startsWith('INVALID_KEY_ERROR:') ? (
+                      <>
+                        <h3 className="font-bold mb-2">API Key Not Valid</h3>
+                        <p className="text-sm mb-2 text-left">
+                          The API key you provided is being rejected by Google. Common reasons include:
+                        </p>
+                        <ul className="text-sm text-left list-disc list-inside space-y-1">
+                          <li>
+                            <strong>Typo:</strong> The key was entered incorrectly. Please try entering it again.
+                          </li>
+                          <li>
+                            <strong>Restrictions:</strong> Your key is restricted (e.g., by website URL). This is a common issue for deployed apps. Ensure your key has no HTTP referrer restrictions or that it allows the current domain.
+                          </li>
+                          <li>
+                            <strong>Disabled Key:</strong> The key was disabled or deleted in your Google Cloud project.
+                          </li>
+                        </ul>
+                        <p className="text-sm mt-3">
+                          <strong>Next Step:</strong> Please visit your{' '}
+                          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-red-800">
+                            Google Cloud Credentials page
+                          </a>
+                          {' '}to verify your key's status and restrictions.
+                        </p>
+                      </>
                     ) : (
                         <>
                             <h3 className="font-bold mb-2">Error Generating Image</h3>
