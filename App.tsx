@@ -423,7 +423,22 @@ const App: React.FC = () => {
       setSelectedImageIndex(0);
 
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.');
+      if (err && err.message) {
+        try {
+          const errorJson = JSON.parse(err.message);
+          if (errorJson.error && errorJson.error.status === 'RESOURCE_EXHAUSTED') {
+            setError(
+              'BILLING_ERROR:This usually means billing is not enabled for your Google Cloud project. While your key works in AI Studio, using it here requires an active billing account. Please enable billing and try again.'
+            );
+          } else {
+            setError(errorJson.error?.message || err.message);
+          }
+        } catch (e) {
+          setError(err.message);
+        }
+      } else {
+        setError('An unexpected error occurred.');
+      }
     } finally {
       setGeneratingCount(0);
       if (loadingIntervalRef.current) {
@@ -857,10 +872,22 @@ const App: React.FC = () => {
                     <p className="mt-1 text-sm text-gray-500">This can take up to a minute...</p>
                   </div>
                 ) : error ? (
-                  <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg">
-                    <h3 className="font-bold mb-2">Error Generating Image</h3>
-                    <p className="text-sm">{error}</p>
-                  </div>
+                   <div className="text-center text-red-600 p-4 bg-red-50 rounded-lg">
+                    {error.startsWith('BILLING_ERROR:') ? (
+                        <>
+                            <h3 className="font-bold mb-2">Quota Exceeded: Billing Required</h3>
+                            <p className="text-sm">
+                                {error.replace('BILLING_ERROR:', '').replace('Please enable billing and try again.', '')}
+                                Please <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:text-red-800">enable billing for your project</a> and try again.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <h3 className="font-bold mb-2">Error Generating Image</h3>
+                            <p className="text-sm">{error}</p>
+                        </>
+                    )}
+                    </div>
                 ) : finalImage ? (
                   <img src={finalImage} alt="Generated AI" className="rounded-lg object-contain h-full w-full" />
                 ) : (
