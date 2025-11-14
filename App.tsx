@@ -38,6 +38,10 @@ const generationLoadingMessages = [
 ];
 
 const App: React.FC = () => {
+  const [apiKey, setApiKey] = useState<string>(localStorage.getItem('gemini-api-key') || '');
+  const [apiKeyInput, setApiKeyInput] = useState<string>('');
+  const [isApiKeySet, setIsApiKeySet] = useState<boolean>(!!localStorage.getItem('gemini-api-key'));
+  
   const [model, setModel] = useState<ModelData>(initialModelData);
   const [scene, setScene] = useState<SceneData>(initialSceneData);
   const [nationality, setNationality] = useState<string>(NATIONALITY_OPTIONS[0]);
@@ -71,6 +75,22 @@ const App: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const isLoading = generatingCount > 0;
+
+  const handleApiKeySave = () => {
+    if (apiKeyInput.trim()) {
+      const trimmedKey = apiKeyInput.trim();
+      localStorage.setItem('gemini-api-key', trimmedKey);
+      setApiKey(trimmedKey);
+      setIsApiKeySet(true);
+    }
+  };
+
+  const handleApiKeyChange = () => {
+    localStorage.removeItem('gemini-api-key');
+    setApiKey('');
+    setIsApiKeySet(false);
+    setApiKeyInput('');
+  };
 
   useEffect(() => {
     if (reference.usePhoto || !generatedImages || generatedImages.length === 0) {
@@ -146,7 +166,7 @@ const App: React.FC = () => {
         setIsRandomizingOutfit(true);
         setError(null);
         try {
-            const { outfit } = await generateRandomOutfit(nationality, model.gender, model.isSensual, overallStyle);
+            const { outfit } = await generateRandomOutfit(apiKey, nationality, model.gender, model.isSensual, overallStyle);
             setModel(prev => ({ ...prev, outfit }));
         } catch (err: any) {
             setError(err.message || 'Failed to randomize outfit.');
@@ -164,7 +184,7 @@ const App: React.FC = () => {
         setIsRandomizingPose(true);
         setError(null);
         try {
-            const { pose } = await generateRandomPose(model.isSensual, modelType);
+            const { pose } = await generateRandomPose(apiKey, model.isSensual, modelType);
             setModel(prev => ({ ...prev, pose }));
         } catch (err: any) {
             setError(err.message || 'Failed to randomize pose.');
@@ -182,10 +202,10 @@ const App: React.FC = () => {
     setError(null);
     try {
       // Generate model first to get its gender
-      const modelData = await generateRandomModel(newCountry, model.isSensual, overallStyle, modelType);
+      const modelData = await generateRandomModel(apiKey, newCountry, model.isSensual, overallStyle, modelType);
       // Use the new model's gender to generate a culturally and contextually appropriate scene
       const genderForScene = modelData.gender || model.gender;
-      const sceneData = await generateRandomScene(newCountry, genderForScene, overallStyle);
+      const sceneData = await generateRandomScene(apiKey, newCountry, genderForScene, overallStyle);
 
       // Update state with both new model and scene data
       setModel(prev => ({ ...prev, ...modelData }));
@@ -196,7 +216,7 @@ const App: React.FC = () => {
       setIsRandomizingModel(false);
       setIsRandomizingScene(false);
     }
-  }, [model.gender, model.isSensual, overallStyle, modelType]);
+  }, [apiKey, model.gender, model.isSensual, overallStyle, modelType]);
 
   const handleNationalityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCountry = e.target.value;
@@ -226,7 +246,7 @@ const App: React.FC = () => {
       setIsAdaptingScene(true);
       setError(null);
       try {
-        const randomIndoorData = await generateRandomIndoorScene(nationality, model.gender, overallStyle);
+        const randomIndoorData = await generateRandomIndoorScene(apiKey, nationality, model.gender, overallStyle);
         setScene(prev => ({ ...prev, ...randomIndoorData }));
       } catch (err: any) {
         setError(err.message || 'Failed to generate a random indoor scene.');
@@ -247,7 +267,7 @@ const App: React.FC = () => {
     setScene(prev => ({ ...prev, ...preset.data }));
     
     try {
-      const adaptedData = await adaptScenePreset(preset.data, nationality);
+      const adaptedData = await adaptScenePreset(apiKey, preset.data, nationality);
       // Now, update with the adapted location and details, while keeping the rest of the preset data.
       setScene(prev => ({ ...prev, ...preset.data, ...adaptedData }));
     } catch (err: any) {
@@ -314,7 +334,7 @@ const App: React.FC = () => {
     setIsRandomizingDescription(true);
     setError(null);
     try {
-      const { description } = await generateRandomDescription(nationality, model.gender, model.age, model.expression);
+      const { description } = await generateRandomDescription(apiKey, nationality, model.gender, model.age, model.expression);
       setModel(prev => ({ ...prev, description }));
     } catch (err: any) {
       setError(err.message || 'Failed to randomize description.');
@@ -335,7 +355,7 @@ const App: React.FC = () => {
         setNationality(effectiveCountry);
       }
 
-      const randomData = await generateRandomModel(effectiveCountry, model.isSensual, overallStyle, modelType);
+      const randomData = await generateRandomModel(apiKey, effectiveCountry, model.isSensual, overallStyle, modelType);
       setModel(prev => ({
         ...prev,
         ...randomData,
@@ -359,7 +379,7 @@ const App: React.FC = () => {
         setNationality(effectiveCountry);
       }
       
-      const randomData = await generateRandomScene(effectiveCountry, model.gender, overallStyle);
+      const randomData = await generateRandomScene(apiKey, effectiveCountry, model.gender, overallStyle);
       setScene(prev => ({
         ...prev,
         ...randomData,
@@ -398,7 +418,7 @@ const App: React.FC = () => {
           setNationality(effectiveCountry);
       }
       
-      const imagesData = await generateAIImage(model, scene, reference, effectiveCountry, overallStyle, modelType, aspectRatio, numImages);
+      const imagesData = await generateAIImage(apiKey, model, scene, reference, effectiveCountry, overallStyle, modelType, aspectRatio, numImages);
       setGeneratedImages(imagesData);
       setSelectedImageIndex(0);
 
@@ -411,7 +431,7 @@ const App: React.FC = () => {
         loadingIntervalRef.current = null;
       }
     }
-  }, [model, scene, reference, nationality, isCountryRandom, overallStyle, modelType, aspectRatio]);
+  }, [apiKey, model, scene, reference, nationality, isCountryRandom, overallStyle, modelType, aspectRatio]);
   
   const handleDownloadImage = () => {
     const selectedImage = generatedImages ? generatedImages[selectedImageIndex] : null;
@@ -432,6 +452,35 @@ const App: React.FC = () => {
   const finalImage = compositeImage || (selectedImage ? `data:image/png;base64,${selectedImage}` : null);
   const outfitOptions = overallStyle === 'modern' ? MODERN_OUTFITS : AUTHENTIC_OUTFITS;
   const poseOptions = model.isSensual ? SENSUAL_POSES : NON_SENSUAL_POSES;
+
+  if (!isApiKeySet) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <h2 className="text-2xl font-semibold text-center mb-4">Enter Your API Key</h2>
+          <p className="text-gray-600 text-center mb-6">
+            Please provide your Google Gemini API key to use the application.
+          </p>
+          <div className="space-y-4">
+            <Input 
+              label="Gemini API Key"
+              id="apiKey"
+              type="password"
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              placeholder="Enter your key here"
+            />
+            <Button onClick={handleApiKeySave} className="w-full">
+              Save and Continue
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500 text-center mt-4">
+            Your key is stored only in your browser's local storage.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans p-4 sm:p-6 lg:p-8">
@@ -459,6 +508,12 @@ const App: React.FC = () => {
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900">AI Studio Image Generator</h1>
           <p className="mt-2 text-lg text-gray-600">Generate realistic, studio-style images from your reference photo and descriptions.</p>
         </header>
+
+        <div className="flex justify-end mb-4">
+          <Button onClick={handleApiKeyChange} variant="secondary" className="py-2 px-4 text-sm">
+            Change API Key
+          </Button>
+        </div>
 
         <main className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           <div className="w-full space-y-8">

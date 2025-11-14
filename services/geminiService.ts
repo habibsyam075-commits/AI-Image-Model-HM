@@ -3,8 +3,6 @@ import { GoogleGenAI, Modality, Part, Type } from '@google/genai';
 import type { ModelData, SceneData, ReferenceData } from '../types';
 import { GENDER_OPTIONS, EXPRESSION_OPTIONS, LIGHTING_OPTIONS, MOOD_OPTIONS, SHOT_TYPE_OPTIONS, ETHNICITY_FEATURES_MAP, SENSUAL_POSES, NON_SENSUAL_POSES } from '../constants';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
     const reader = new FileReader();
@@ -131,6 +129,7 @@ const buildPrompt = (modelData: ModelData, sceneData: SceneData, country: string
  * Returns an array of base64 encoded strings of the generated image(s).
  */
 export const generateAIImage = async (
+  apiKey: string,
   modelData: ModelData,
   sceneData: SceneData,
   referenceData: ReferenceData,
@@ -140,7 +139,8 @@ export const generateAIImage = async (
   aspectRatio: '1:1' | '3:4' | '9:16',
   numberOfImages: 1 | 4 = 1,
 ): Promise<string[]> => {
-  
+  const ai = new GoogleGenAI({ apiKey });
+
   // Case 1: Reference photo is provided (Image Editing/Style Transfer)
   // Use gemini-2.5-flash-image, which generates a single image.
   if (referenceData.usePhoto && referenceData.photo) {
@@ -210,7 +210,8 @@ export const generateAIImage = async (
 /**
  * Generates a random model description using Gemini.
  */
-export const generateRandomModel = async (country: string, isSensual: boolean, overallStyle: 'modern' | 'authentic', modelType: 'professional' | 'natural'): Promise<Partial<ModelData>> => {
+export const generateRandomModel = async (apiKey: string, country: string, isSensual: boolean, overallStyle: 'modern' | 'authentic', modelType: 'professional' | 'natural'): Promise<Partial<ModelData>> => {
+  const ai = new GoogleGenAI({ apiKey });
   let outfitPrompt: string;
 
   if (isSensual) {
@@ -284,7 +285,8 @@ export const generateRandomModel = async (country: string, isSensual: boolean, o
 /**
  * Generates a random model description using Gemini.
  */
-export const generateRandomDescription = async (country: string, gender: string, age: number, expression: string): Promise<{ description: string }> => {
+export const generateRandomDescription = async (apiKey: string, country: string, gender: string, age: number, expression: string): Promise<{ description: string }> => {
+  const ai = new GoogleGenAI({ apiKey });
   const ethnicFeaturesGuide = ETHNICITY_FEATURES_MAP[country] || 'A diverse range of human features.';
 
   const prompt = `You are a world-class cultural anthropologist and character designer. Your task is to generate a realistic and unique human model description for a photoshoot.
@@ -351,7 +353,8 @@ Provide a JSON object with the following keys: "location", "lighting", "mood", "
  * Generates a random scene description using Gemini.
  * Returns a partial SceneData object.
  */
-export const generateRandomScene = async (country: string, gender: string, overallStyle: 'modern' | 'authentic'): Promise<Partial<SceneData>> => {
+export const generateRandomScene = async (apiKey: string, country: string, gender: string, overallStyle: 'modern' | 'authentic'): Promise<Partial<SceneData>> => {
+  const ai = new GoogleGenAI({ apiKey });
   const prompt = SCENE_GENERATION_PROMPT.replace('{COUNTRY}', country);
 
   const response = await ai.models.generateContent({
@@ -380,7 +383,8 @@ export const generateRandomScene = async (country: string, gender: string, overa
  * Generates a random INDOOR scene description using Gemini.
  * Returns a partial SceneData object.
  */
-export const generateRandomIndoorScene = async (country: string, gender: string, overallStyle: 'modern' | 'authentic'): Promise<Partial<SceneData>> => {
+export const generateRandomIndoorScene = async (apiKey: string, country: string, gender: string, overallStyle: 'modern' | 'authentic'): Promise<Partial<SceneData>> => {
+  const ai = new GoogleGenAI({ apiKey });
   const prompt = SCENE_GENERATION_PROMPT.replace('{COUNTRY}', country) + "\n The location must be an INDOOR scene.";
 
   const response = await ai.models.generateContent({
@@ -408,7 +412,8 @@ export const generateRandomIndoorScene = async (country: string, gender: string,
 /**
  * Generates a random outfit description using Gemini.
  */
-export const generateRandomOutfit = async (country: string, gender: string, isSensual: boolean, overallStyle: 'modern' | 'authentic'): Promise<{ outfit: string }> => {
+export const generateRandomOutfit = async (apiKey: string, country: string, gender: string, isSensual: boolean, overallStyle: 'modern' | 'authentic'): Promise<{ outfit: string }> => {
+  const ai = new GoogleGenAI({ apiKey });
   let outfitPrompt: string;
 
   if (isSensual) {
@@ -450,7 +455,8 @@ export const generateRandomOutfit = async (country: string, gender: string, isSe
 /**
  * Generates a random pose description using Gemini.
  */
-export const generateRandomPose = async (isSensual: boolean, modelType: 'professional' | 'natural'): Promise<{ pose: string }> => {
+export const generateRandomPose = async (apiKey: string, isSensual: boolean, modelType: 'professional' | 'natural'): Promise<{ pose: string }> => {
+  const ai = new GoogleGenAI({ apiKey });
   const existingPoses = isSensual ? SENSUAL_POSES : NON_SENSUAL_POSES;
   const mood = isSensual ? 'sensual, intimate, and artistic' : 'natural, candid, or professional';
   const persona = modelType === 'professional' ? 'a professional model' : 'a normal person in a candid moment';
@@ -486,9 +492,11 @@ export const generateRandomPose = async (isSensual: boolean, modelType: 'profess
  * Adapts a scene preset to a specific country's cultural context using Gemini.
  */
 export const adaptScenePreset = async (
+  apiKey: string,
   presetData: Partial<SceneData>,
   country: string
 ): Promise<Partial<SceneData>> => {
+  const ai = new GoogleGenAI({ apiKey });
   const prompt = `You are a reality simulation engine. Your task is to adapt a preset scene concept into a 100% realistic data profile for an average, everyday location in ${country}.
   
   **Core Mandate: Absolute Realism, NOT Aesthetics (NON-NEGOTIABLE)**
